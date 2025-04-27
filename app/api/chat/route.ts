@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyCW6F8RTJ2Xz0fn_62M9DhMQY8UoRmy2A4");
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyBPFqPP-13U7DwwymTAlOc5vZyY4PLaG-s");
 const historyFile = path.join(process.cwd(), "chat_history.json");
 
 async function saveChatHistory(prompt: string, response: string, age?: string) {
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 4. **Recommended Interventions**: Specific medication names and product names (e.g., Acetaminophen, Fluoxetine) with age-adjusted notes if applicable, plus therapies
 5. **Suggested Consultation/Referral**: Next steps with professionals
 
-**Detailed Analysis Prompt:** 
+**Detailed Analysis Prompt:**
 Analyze the following health/mental health concern with maximum precision:
 "${userPrompt}"
 ${age ? `User age: ${age}. Tailor medication suggestions accordingly (e.g., pediatric doses or adult formulations).` : "Age not provided; use general adult recommendations."}
