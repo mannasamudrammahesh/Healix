@@ -12,8 +12,6 @@ import toast, { Toaster } from "react-hot-toast";
 import styles from "@/styles/styles.module.css";
 import { BeatLoader } from "react-spinners";
 
-const API_KEY = "AIzaSyBPFqPP-13U7DwwymTAlOc5vZyY4PLaG-s";
-
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
@@ -91,9 +89,6 @@ export default function Home() {
       const response = await fetch("/api/chat", {
         method: "POST",
         body: formData,
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`
-        }
       });
 
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
