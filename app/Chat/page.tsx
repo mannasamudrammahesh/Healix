@@ -1,253 +1,60 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Markdown from "react-markdown";
 import { Input } from "@/components/ui/input";
-import { MessageCircleCode, Upload, Mic, Volume2, History } from "lucide-react";
-import { Send, Copy, Download } from "lucide-react";
+import { MessageCircleCode, Upload, Send, Copy, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import toast, { Toaster } from "react-hot-toast";
 import styles from "@/styles/styles.module.css";
 import { BeatLoader } from "react-spinners";
-import { useSpeechSynthesis } from "react-speech-kit";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [output, setOutput] = useState("The response will appear here...");
   const [loading, setLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const submissionTimeout = useRef<NodeJS.Timeout | null>(null);
-  const { speak, speaking, cancel, voices } = useSpeechSynthesis();
-  const completeResponseRef = useRef<string>("");
 
-  const getBestVoice = () => {
-    const preferredVoiceNames = [
-      "Google UK English Female",
-      "Google US English Female",
-      "Microsoft Zira Desktop - English (United States)",
-      "Samantha",
-      "Victoria",
-      "Alex",
-      "Karen",
-    ];
-
-    for (const name of preferredVoiceNames) {
-      const exactMatch = voices.find(voice => voice.name === name);
-      if (exactMatch) return exactMatch;
-    }
-
-    const keywordMatch = voices.find(voice =>
-      (voice.name.toLowerCase().includes("female") ||
-       voice.name.toLowerCase().includes("girl") ||
-       voice.name.toLowerCase().includes("woman")) &&
-      voice.lang.startsWith("en")
-    );
-    if (keywordMatch) return keywordMatch;
-
-    const providerMatch = voices.find(voice =>
-      (voice.name.includes("Google") || voice.name.includes("Microsoft")) &&
-      voice.lang.startsWith("en")
-    );
-    if (providerMatch) return providerMatch;
-
-    const englishVoice = voices.find(voice => voice.lang.startsWith("en"));
-    return englishVoice || voices[0];
-  };
-
-  const speechOptions = {
-    voice: getBestVoice(),
-    rate: 0.95,
-    pitch: 1.1,
-    volume: 1.0
-  };
-
-  useEffect(() => {
-    fetch("/api/chat", { method: "GET" })
-      .then((res) => res.json())
-      .then((data) => setChatHistory(data.history || []))
-      .catch((err) => console.error("Failed to fetch chat history:", err));
-  }, []);
-
-  const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Speech recognition not supported in this browser!");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      toast.success("Listening...");
-    };
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setPrompt(transcript);
-      toast.success("Voice captured!");
-      submissionTimeout.current = setTimeout(() => onSubmit(), 1500);
-    };
-
-    recognition.onerror = (event) => {
-      toast.error(`Voice input error: ${event.error}`);
-      setIsListening(false);
-      if (submissionTimeout.current) clearTimeout(submissionTimeout.current);
-    };
-
-    recognition.onend = () => setIsListening(false);
-
-    try {
-      recognition.start();
-    } catch (error) {
-      toast.error("Failed to start voice input.");
-      setIsListening(false);
-    }
-  };
-
-  const processTextForSpeech = (text: string): string => {
-    if (!text || text === "The response will appear here...") return "";
-
-    let cleanedText = text
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/__(.*?)__/g, "$1")
-      .replace(/_(.*?)_/g, "$1")
-      .replace(/```[\s\S]*?```/g, "")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-      .replace(/#{1,6}\s+(.*?)(?:\n|$)/g, "$1. ")
-      .replace(/^\s*[-*+]\s+(.*?)(?:\n|$)/gm, "$1. ")
-      .replace(/^\s*\d+\.\s+(.*?)(?:\n|$)/gm, "$1. ")
-      .replace(/\n{2,}/g, ". ")
-      .replace(/\n/g, ". ")
-      .replace(/\.\s*\./g, ".")
-      .replace(/\s{2,}/g, " ")
-      .replace(/[\s\.]+([\.,;:])/g, "$1")
-      .trim();
-
-    if (cleanedText && !".?!".includes(cleanedText[cleanedText.length - 1])) {
-      cleanedText += ".";
-    }
-
-    console.log("Full processed text for speech:", cleanedText);
-    return cleanedText;
-  };
-
-  const toggleSpeech = () => {
-    if (speaking) {
-      cancel();
-      toast.success("Speech stopped");
-      return;
-    }
-
-    const fullText = completeResponseRef.current;
-    if (!fullText || fullText === "The response will appear here...") {
-      toast.error("No content to speak");
-      return;
-    }
-
-    const processedText = processTextForSpeech(fullText);
-    if (!processedText) {
-      toast.error("No valid content to speak");
-      return;
-    }
-
-    console.log("Speaking full text length:", processedText.length);
-    toast.success("Starting speech...");
-    const MAX_CHARS = 4000;
-
-    if (processedText.length <= MAX_CHARS) {
-      speak({
-        ...speechOptions,
-        text: processedText,
-        onEnd: () => {
-          console.log("Single chunk speech completed");
-          toast.success("Speech completed");
-        },
-        onError: (err) => {
-          console.error("Speech error:", err);
-          toast.error("Speech playback failed");
-        }
-      });
-    } else {
-      const chunks = [];
-      let currentChunk = "";
-      const sentences = processedText.split(/(?<=[.!?])\s+/).filter(Boolean);
-
-      for (const sentence of sentences) {
-        if ((currentChunk + " " + sentence).length > MAX_CHARS) {
-          if (currentChunk) chunks.push(currentChunk);
-          currentChunk = sentence;
-        } else {
-          currentChunk += (currentChunk ? " " : "") + sentence;
-        }
-      }
-      if (currentChunk) chunks.push(currentChunk);
-
-      console.log("Speech chunks:", chunks.length, chunks);
-
-      let chunkIndex = 0;
-      const speakNextChunk = () => {
-        if (chunkIndex >= chunks.length) {
-          console.log("All chunks spoken");
-          toast.success("Full speech completed");
-          return;
-        }
-
-        console.log(`Speaking chunk ${chunkIndex + 1}/${chunks.length}:`, chunks[chunkIndex]);
-        speak({
-          ...speechOptions,
-          text: chunks[chunkIndex],
-          onEnd: () => {
-            chunkIndex++;
-            speakNextChunk();
-          },
-          onError: (err) => {
-            console.error(`Speech error on chunk ${chunkIndex}:`, err);
-            toast.error(`Speech error on part ${chunkIndex + 1}`);
-          }
-        });
-      };
-
-      speakNextChunk();
-    }
-  };
-
-  const onKeyDown = (e: any) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       onSubmit();
     }
   };
 
-  const onFileChange = (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return toast.error("No file selected!");
-
-    const supportedExtensions = /\.(txt|pdf|docx|xlsx|pptx|html|epub|mobi|azw|azw3|odt|ods|odp)$/i;
-    if (!file.name.match(supportedExtensions)) {
-      return toast.error("File type not supported!");
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      toast.error("No file selected!");
+      return;
     }
 
-    setFile(file);
-    toast.success(`File selected: ${file.name}`);
+    // Check for supported text file types
+    const supportedTypes = ["text/plain", "text/markdown", "text/csv"];
+    if (!supportedTypes.includes(file.type)) {
+      toast.error("Only text files (.txt, .md, .csv) are supported!");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const fileContent = readerEvent.target?.result as string;
+      if (fileContent) {
+        setPrompt(fileContent);
+        toast.success("File uploaded successfully!");
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Error reading file!");
+    };
+    reader.readAsText(file, "UTF-8");
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(output)
-      .then(() => toast.success("Copied to clipboard!"))
-      .catch(() => toast.error("Failed to copy text."));
+    navigator.clipboard.writeText(output);
+    toast.success("Copied to clipboard!");
   };
 
   const downloadFile = () => {
@@ -255,187 +62,159 @@ export default function Home() {
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `council-chat-${new Date().toISOString().slice(0,10)}.txt`;
-    document.body.appendChild(anchor);
+    anchor.download = "chat-response.txt";
     anchor.click();
-    document.body.removeChild(anchor);
+    anchor.remove();
     window.URL.revokeObjectURL(url);
-    toast.success("Downloaded successfully!");
+    toast.success("File downloaded!");
   };
 
   const onSubmit = async () => {
-    if (submissionTimeout.current) clearTimeout(submissionTimeout.current);
-
-    const trimmedPrompt = prompt.trim();
-    if (!trimmedPrompt) return toast.error("Please enter a prompt!");
-
-    setOutput("The response will appear here...");
-    setLoading(true);
-
-    const formData = new FormData();
-    formData.append("userPrompt", trimmedPrompt);
-    formData.append("age", "not specified");
-    if (file) {
-      formData.append("file", file);
+    if (prompt.trim() === "") {
+      toast.error("Prompt cannot be empty!");
+      return;
     }
+
+    setOutput("Generating response...");
+    setLoading(true);
 
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userPrompt: prompt,
+        }),
       });
 
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
 
       const data = await response.json();
       setLoading(false);
 
-      if (data.error) return toast.error(data.error);
-      if (!data.text) return toast.error("No response from server!");
+      if (data.error) {
+        toast.error(data.error);
+        setOutput("Error occurred. Please try again.");
+        return;
+      }
 
-      const fullResponse = data.text;
-      setResponse(fullResponse);
-      completeResponseRef.current = fullResponse;
-      console.log("Full response set:", fullResponse);
-      setPrompt("");
-      setChatHistory(prev => [
-        ...prev,
-        { prompt: trimmedPrompt, response: fullResponse, timestamp: new Date().toISOString() }
-      ]);
-      setFile(null);
+      if (!data.text || data.text === "") {
+        toast.error("No response from the server!");
+        setOutput("No response received. Please try again.");
+        return;
+      }
+
+      setResponse(data.text);
     } catch (error) {
-      toast.error(`Failed to get response: ${error instanceof Error ? error.message : "Unknown error"}`);
       setLoading(false);
+      toast.error("Failed to fetch response. Check your connection!");
+      setOutput("Failed to get response. Please try again.");
+      console.error("Error:", error);
     }
   };
 
   useEffect(() => {
-    if (!response) return;
+    if (response.length === 0) return;
 
-    setOutput("");
-    const charsPerBatch = 5;
-    const batchDelay = 12;
-    const timeoutIds: NodeJS.Timeout[] = [];
+    setOutput(""); // Reset output before typing effect
 
-    for (let i = 0; i < response.length; i += charsPerBatch) {
-      const timeoutId = setTimeout(() => {
-        setOutput(prev => prev + response.slice(i, Math.min(i + charsPerBatch, response.length)));
-      }, Math.floor(i / charsPerBatch) * batchDelay);
-      timeoutIds.push(timeoutId);
-    }
+    let i = 0;
+    const typingInterval = setInterval(() => {
+      if (i < response.length) {
+        setOutput((prev) => prev + response[i]);
+        i++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, 10);
 
-    return () => timeoutIds.forEach(id => clearTimeout(id));
+    return () => clearInterval(typingInterval); // Cleanup on unmount or response change
   }, [response]);
 
   return (
-    <main className="flex flex-col items-center h-screen gap-4 mt-10 relative">
+    <main className="flex flex-col items-center min-h-screen gap-4 p-4 bg-gray-100">
       <Toaster position="top-center" />
-      <div className="absolute top-4 left-4">
-        <Button variant="outline" onClick={() => setShowHistory(!showHistory)} aria-label="Toggle chat history">
-          <History size={24} />
-        </Button>
+      <div className="flex gap-2 items-center mt-8 mb-5">
+        <MessageCircleCode size="64" className="text-blue-600" />
+        <span className="text-3xl md:text-4xl font-bold text-gray-800">Council</span>
       </div>
-
-      {showHistory && (
-        <div className="absolute top-16 left-4 w-1/3 h-[80vh] bg-gray-100 p-4 overflow-y-auto shadow-lg z-10 rounded-lg">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Chat History</h2>
-            <Button variant="ghost" onClick={() => setShowHistory(false)} size="sm">✕</Button>
-          </div>
-          {chatHistory.length === 0 ? (
-            <p className="text-gray-500 italic">No previous chats found.</p>
-          ) : (
-            <div className="space-y-4">
-              {chatHistory.map((chat, index) => (
-                <div key={index} className="mb-4 p-3 bg-white rounded-lg shadow">
-                  <p className="font-medium text-sm text-gray-700">{new Date(chat.timestamp).toLocaleString()}</p>
-                  <p className="font-semibold mt-1 mb-1">Q: {chat.prompt}</p>
-                  <p className="text-sm text-gray-600">{chat.response.slice(0, 100)}...</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setPrompt(chat.prompt);
-                      setOutput(chat.response);
-                      completeResponseRef.current = chat.response;
-                      setShowHistory(false);
-                    }}
-                  >
-                    Load
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-2 items-center mb-5">
-        <MessageCircleCode size="64" />
-        <span className="text-3xl font-bold">Council</span>
-      </div>
-
-      <div className="flex gap-2 items-center w-full max-w-[700px]">
-        <div className="relative flex-grow">
+      <div className="flex flex-col sm:flex-row gap-2 items-center w-full max-w-3xl">
+        <div className="relative w-full">
           <Input
             type="text"
-            placeholder="Type or speak your prompt"
+            placeholder="Enter your prompt here..."
             value={prompt}
-            className={cn("w-full h-[50px] pr-24")}
+            className={cn(
+              "w-full h-[50px] pr-12 text-sm md:text-base",
+              "focus:ring-2 focus:ring-blue-500"
+            )}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={onKeyDown}
+            disabled={loading}
           />
-          <div className="absolute top-1/2 right-2 transform -translate-y-1/2 flex gap-2">
-            {loading ? (
+          {loading ? (
+            <div className="absolute top-1/2 right-3 transform -translate-y-1/2">
               <BeatLoader color="#000" size={8} />
-            ) : (
-              <Button variant="ghost" onClick={onSubmit} className="p-1">
-                <Send size={20} />
-              </Button>
-            )}
-            <Button variant="ghost" onClick={startListening} className="p-1" disabled={isListening}>
-              <Mic size={20} color={isListening ? "red" : "black"} />
-            </Button>
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={onSubmit}
+              className="absolute top-1/2 right-3 transform -translate-y-1/2 hover:scale-110 transition ease-in-out"
+              aria-label="Submit prompt"
+            >
+              <Send className="text-blue-600" />
+            </button>
+          )}
         </div>
-        <Input
+        <input
           type="file"
           onChange={onFileChange}
           className="hidden"
           id="file-upload"
-          accept=".txt,.pdf,.docx,.xlsx,.pptx,.html,.epub,.mobi,.azw,.azw3,.odt,.ods,.odp"
+          accept=".txt,.md,.csv"
         />
         <Button
           variant="outline"
-          className={cn("w-[40px] p-1")}
+          className={cn("w-[40px] h-[40px] p-0 flex items-center justify-center")}
           onClick={() => document.getElementById("file-upload")?.click()}
-          title="Upload a file"
+          aria-label="Upload file"
         >
-          <Upload className={cn("w-[20px]")} />
+          <Upload className="w-5 h-5" />
         </Button>
       </div>
-
-      <div className="flex gap-3 items-center w-full max-w-[700px]">
-        <Card className={cn("p-5 whitespace-normal w-full min-h-[150px] max-h-[400px] overflow-y-scroll")}>
-          <div className={`${styles.textwrapper}`}>
-            <Markdown className={cn("w-full h-full")}>{output}</Markdown>
+      <div className="flex flex-col sm:flex-row gap-3 items-start w-full max-w-3xl">
+        <Card
+          className={cn(
+            "p-5 w-full min-h-[150px] max-h-[400px] overflow-y-auto",
+            "bg-white shadow-md rounded-lg"
+          )}
+        >
+          <div className={styles.textwrapper}>
+            <Markdown className="w-full h-full text-gray-700 prose">
+              {output}
+            </Markdown>
           </div>
         </Card>
-        <div className="flex flex-col gap-5">
-          <Button variant="outline" className={cn("w-[40px] p-1")} onClick={copyToClipboard} title="Copy to clipboard">
-            <Copy className={cn("w-[20px]")} />
-          </Button>
-          <Button variant="outline" className={cn("w-[40px] p-1")} onClick={downloadFile} title="Download as text file">
-            <Download className={cn("w-[20px]")} />
+        <div className="flex flex-row sm:flex-col gap-3">
+          <Button
+            variant="outline"
+            className={cn("w-[40px] h-[40px] p-0 flex items-center justify-center")}
+            onClick={copyToClipboard}
+            aria-label="Copy to clipboard"
+          >
+            <Copy className="w-5 h-5" />
           </Button>
           <Button
-            variant={speaking ? "default" : "outline"}
-            className={cn("w-[40px] p-1")}
-            onClick={toggleSpeech}
-            title={speaking ? "Stop speech" : "Text to speech"}
-            disabled={!completeResponseRef.current || completeResponseRef.current === "The response will appear here..."}
+            variant="outline"
+            className={cn("w-[40px] h-[40px] p-0 flex items-center justify-center")}
+            onClick={downloadFile}
+            aria-label="Download response"
           >
-            <Volume2 className={cn("w-[20px]")} color={speaking ? "white" : "black"} />
+            <Download className="w-5 h-5" />
           </Button>
         </div>
       </div>
