@@ -12,6 +12,9 @@ async function saveChatHistory(prompt: string, response: string, age?: string) {
     const data = await fs.readFile(historyFile, "utf-8");
     history = JSON.parse(data);
   } catch (e) {
+    if (e.code !== 'ENOENT') {
+      console.error("Error reading chat history file:", e);
+    }
     history = [];
   }
   history.push({ prompt, response, age, timestamp: new Date().toISOString() });
