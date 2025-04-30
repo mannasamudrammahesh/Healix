@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyCWyXtAnAZPAf_xz5FyiOsulIWAfNUX5p8");
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ");
 const historyFile = path.join(process.cwd(), "chat_history.json");
 
 async function saveChatHistory(prompt: string, response: string, age?: string) {
