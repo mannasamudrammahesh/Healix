@@ -16,106 +16,95 @@ export default function Page({ params }: { params: { name: string } }) {
 
     const name = params.name;
     const [loading, setLoading] = useState(false);
-    
-    // const [image, setImage] = useState("");
-
-    // const getImage = async (name: string) => {
-    //     const response = await fetch("/api/imagen", {
-    //         method: "POST",
-    //         headers: {
-    //             "Content-Type": "application/json",
-    //         },
-    //         body: JSON.stringify({
-    //             name,
-    //         }),
-    //     });
-
-    //     const data = await response.json();
-
-    //     // get imageUrl from data
-    //     console.log(data.imageURl);
-    //     setImage(data.imageURl);
-    //     return data;
-    // }
-
     const [response, setResponse] = useState("");
     const [output, setOutput] = useState("The response will appear here...");
 
     const onSubmit = async () => {
-
-        // clear the output
+        // Clear the output
         setOutput("The response will appear here...");
 
         toast.success("Creating a response for what causes and cure for " + name);
 
-        // set the loading state to true
+        // Set the loading state to true
         setLoading(true);
 
-        // create a post request to the /api/chat endpoint
-        const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                userPrompt: `can you tell me what is ${name} and what is the possible cure for it?`,
-            }),
-        });
+        try {
+            // Create FormData to match what route.ts expects
+            const formData = new FormData();
+            formData.append("userPrompt", `can you tell me what is ${name} and what is the possible cure for it?`);
+            formData.append("age", "not specified");
 
-        // get the response from the server
-        const data = await response.json();
+            // Create a post request to the /api/chat endpoint with FormData
+            const response = await fetch("/api/chat", {
+                method: "POST",
+                body: formData, // Send as FormData instead of JSON
+            });
 
-        setLoading(false);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Server error: ${response.status}`);
+            }
 
-        if (data.error) {
-            toast.error(data.error);
-            return;
+            // Get the response from the server
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (!data.text || data.text === "") {
+                throw new Error("No response from the server!");
+            }
+
+            // Set the response in the state
+            setResponse(data.text);
+        } catch (error) {
+            console.error("Error fetching response:", error);
+            toast.error(error.message || "Failed to get response");
+        } finally {
+            setLoading(false);
         }
-
-        if (data.text === "") {
-            toast.error("No response from the server!");
-            return;
-        }
-
-        // set the response in the state
-        setResponse(data.text);
     };
 
     useEffect(() => {
-        // update the response character by character in the output
-        if (response.length === 0) return;
+        // Update the response character by character in the output
+        if (!response || response.length === 0) return;
 
         setOutput("");
+        
+        // More efficient animation with fewer timeouts
+        const charsPerBatch = 5;
+        const batchDelay = 10;
+        const timeoutIds: NodeJS.Timeout[] = [];
 
-        for (let i = 0; i < response.length; i++) {
-            setTimeout(() => {
-                setOutput((prev) => prev + response[i]);
-            }, i * 10);
+        for (let i = 0; i < response.length; i += charsPerBatch) {
+            const timeoutId = setTimeout(() => {
+                setOutput(prev => prev + response.slice(i, Math.min(i + charsPerBatch, response.length)));
+            }, Math.floor(i / charsPerBatch) * batchDelay);
+            timeoutIds.push(timeoutId);
         }
 
+        // Clean up timeouts on component unmount
+        return () => timeoutIds.forEach(id => clearTimeout(id));
     }, [response]);
 
     return (
         <div>
-            <Toaster />
+            <Toaster position="top-center" />
             <div className='flex flex-col items-center h-screen gap-6'>
                 <h1 className='text-4xl font-extrabold mt-1'>{name}</h1>
-                {/* {image && <Image src={image} alt="image" width={300} height={300} />} */}
                 <h1 className='text-1xl font-bold mt-1'>Creating a response for what causes and cure for <span className="text-red-500">{name}</span></h1>
-                <Card className={cn("p-5 whitespace-normal min-w-[320px] sm:w-[500px] md:min-w-[600px]")}>
+                <Card className={cn("p-5 whitespace-normal min-w-[320px] sm:w-[500px] md:min-w-[600px] max-h-[400px] overflow-y-auto")}>
                     <div className={styles.textwrapper}>
-                        <Markdown className={cn("w-full h-full ")}>{`${output}`}</Markdown>
+                        <Markdown className={cn("w-full")}>{output}</Markdown>
                     </div>
                 </Card>
                 {loading ? (
-                    <Button>
+                    <Button disabled>
                         <BeatLoader color="white" size={8} />
                     </Button>
                 ): (
-                    <Button onClick={() => {
-                        onSubmit();
-                        // getImage(name);
-                    }}>Get Details</Button>
+                    <Button onClick={onSubmit}>Get Details</Button>
                 )}
             </div>
         </div>
