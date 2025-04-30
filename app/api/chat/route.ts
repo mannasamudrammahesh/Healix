@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ");
+const genAI = new GoogleGenerativeAI("AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ");  // API key included
 const historyFile = path.join(process.cwd(), "chat_history.json");
 
 async function saveChatHistory(prompt: string, response: string, age?: string) {
@@ -23,14 +23,34 @@ async function saveChatHistory(prompt: string, response: string, age?: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const apiKey = "AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ";
     const { userPrompt, age } = await req.json();
     if (!userPrompt?.trim()) {
       return NextResponse.json({ error: "**Input Required for Consultation**" }, { status: 400 });
     }
 
+    let genAI;
+    try {
+      genAI = new GoogleGenerativeAI(apiKey);
+    } catch (error) {
+      console.error("Error initializing Google AI:", error);
+      return NextResponse.json({ error: "Failed to initialize AI service" }, { status: 500 });
+    }
+
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-pro",
-      generationConfig: { maxOutputTokens: 300, temperature: 0.5, topP: 0.8 },
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.9,
+        topP: 0.9,
+        topK: 40,
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+      ],
     });
 
     const fullPrompt = `
@@ -59,8 +79,23 @@ ${age ? `User age: ${age}. Tailor medication suggestions accordingly (e.g., pedi
 - Prioritize user's immediate well-being
     `.trim();
 
-    const { response } = await model.generateContent(fullPrompt);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Request timed out")), 15000);
+    });
+
+    const responsePromise = model.generateContent(fullPrompt);
+    const result = await Promise.race([responsePromise, timeoutPromise]);
+
+    if (!result || typeof result === 'string') {
+      throw new Error("Invalid response from AI service");
+    }
+
+    const response = await result.response;
     const text = response.text();
+
+    if (!text || text.trim() === '') {
+      return NextResponse.json({ error: "Empty response received" }, { status: 500 });
+    }
 
     await saveChatHistory(userPrompt, text, age);
 
