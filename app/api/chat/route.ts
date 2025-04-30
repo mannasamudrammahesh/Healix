@@ -3,7 +3,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs/promises";
 import path from "path";
 
-const genAI = new GoogleGenerativeAI("AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ");  // API key included
+const apiKey = "AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ"; 
+const genAI = new GoogleGenerativeAI(apiKey);
 const historyFile = path.join(process.cwd(), "chat_history.json");
 
 async function saveChatHistory(prompt: string, response: string, age?: string) {
@@ -15,7 +16,6 @@ async function saveChatHistory(prompt: string, response: string, age?: string) {
     if (e.code !== 'ENOENT') {
       console.error("Error reading chat history file:", e);
     }
-    history = [];
   }
   history.push({ prompt, response, age, timestamp: new Date().toISOString() });
   await fs.writeFile(historyFile, JSON.stringify(history, null, 2));
@@ -23,18 +23,9 @@ async function saveChatHistory(prompt: string, response: string, age?: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = "AIzaSyAx34o31vs5bNBpR8BbftYHU-hC4jqOOJQ";
     const { userPrompt, age } = await req.json();
     if (!userPrompt?.trim()) {
       return NextResponse.json({ error: "**Input Required for Consultation**" }, { status: 400 });
-    }
-
-    let genAI;
-    try {
-      genAI = new GoogleGenerativeAI(apiKey);
-    } catch (error) {
-      console.error("Error initializing Google AI:", error);
-      return NextResponse.json({ error: "Failed to initialize AI service" }, { status: 500 });
     }
 
     const model = genAI.getGenerativeModel({
