@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import toast, { Toaster } from "react-hot-toast";
 import styles from "@/styles/styles.module.css";
 import { BeatLoader } from "react-spinners";
+import { useTheme } from "next-themes";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
@@ -20,35 +21,49 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const submissionTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { setTheme } = useTheme();
+  const isMounted = useRef(false);
+
+  // Set light theme as default on initial render
+  useEffect(() => {
+    setTheme("light");
+  }, []);
+
+  // Mark component as mounted
+  useEffect(() => {
+    isMounted.current = true;
+  }, []);
 
   // Fetch chat history on mount
   useEffect(() => {
-    fetchChatHistory();
+    if (isMounted.current) {
+      fetchChatHistory();
+    }
   }, []);
 
-  // Function to fetch chat history
   const fetchChatHistory = async () => {
     try {
       const res = await fetch("/api/chat", { method: "GET" });
-      if (!res.ok) throw new Error(`Failed to fetch history: ${res.status}`);
+      if (!res.ok) throw new Error("Failed to fetch history");
+
       const data = await res.json();
-      setChatHistory(data.history || []);
+      if (data && data.history) {
+        setChatHistory(data.history);
+      }
     } catch (err) {
       console.error("Failed to fetch chat history:", err);
-      toast.error("Could not load chat history");
     }
   };
 
-  const onKeyDown = (e: any) => {
+  const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       onSubmit();
     }
   };
 
-  const onFileChange = (e: any) => {
-    const file = e.target.files[0];
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return toast.error("No file selected!");
 
     const supportedExtensions = /\.(txt|pdf|docx|xlsx|pptx|html|epub|mobi|azw|azw3|odt|ods|odp)$/i;
@@ -80,54 +95,62 @@ export default function Home() {
   };
 
   const onSubmit = async () => {
-    if (submissionTimeout.current) clearTimeout(submissionTimeout.current);
-
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) return toast.error("Please enter a prompt!");
 
     setOutput("The response will appear here...");
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append("userPrompt", trimmedPrompt);
-    formData.append("age", "not specified");
-    if (file) {
-      formData.append("file", file);
-    }
-
     try {
+      const formData = new FormData();
+      formData.append("userPrompt", trimmedPrompt);
+      formData.append("age", "not specified");
+      if (file) {
+        formData.append("file", file);
+      }
+
       const response = await fetch("/api/chat", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
 
       const data = await response.json();
-      setLoading(false);
 
-      if (data.error) return toast.error(data.error);
-      if (!data.text) return toast.error("No response from server!");
+      if (data.error) throw new Error(data.error);
+      if (!data.text) throw new Error("No response from server!");
 
       const fullResponse = data.text;
       setResponse(fullResponse);
       setPrompt("");
-      
-      // Update local state with new chat entry
-      const newChatEntry = { 
-        prompt: trimmedPrompt, 
-        response: fullResponse, 
-        timestamp: new Date().toISOString() 
+
+      // Update chat history state and fetch fresh history
+      const newHistoryItem = {
+        prompt: trimmedPrompt,
+        response: fullResponse,
+        timestamp: new Date().toISOString()
       };
-      
-      setChatHistory(prev => [newChatEntry, ...prev]);
+
+      setChatHistory(prev => [...prev, newHistoryItem]);
+
+      // Reset file input
       setFile(null);
-      
-      // Refetch history to ensure it's synchronized with the server
-      setTimeout(fetchChatHistory, 1000);
-      
-    } catch (error) {
-      toast.error(`Failed to get response: ${error instanceof Error ? error.message : "Unknown error"}`);
+      if (document.getElementById("file-upload") as HTMLInputElement) {
+        (document.getElementById("file-upload") as HTMLInputElement).value = '';
+      }
+
+      // Fetch updated history after a short delay to ensure server has saved it
+      setTimeout(() => {
+        fetchChatHistory();
+      }, 500);
+
+    } catch (error: any) {
+      toast.error(`Failed to get response: ${error.message || "Unknown error"}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -151,16 +174,23 @@ export default function Home() {
   }, [response]);
 
   return (
-    <main className="flex flex-col items-center h-screen gap-4 mt-10 relative">
+    <main className="flex flex-col items-center min-h-screen gap-4 mt-10 relative bg-[#A4C8E1]">
       <Toaster position="top-center" />
       <div className="absolute top-4 left-4">
-        <Button variant="outline" onClick={() => setShowHistory(!showHistory)} aria-label="Toggle chat history">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowHistory(!showHistory);
+            if (!showHistory) fetchChatHistory();
+          }}
+          aria-label="Toggle chat history"
+        >
           <History size={24} />
         </Button>
       </div>
 
       {showHistory && (
-        <div className="absolute top-16 left-4 w-1/3 h-[80vh] bg-white dark:bg-gray-800 p-4 overflow-y-auto shadow-lg z-10 rounded-lg">
+        <div className="absolute top-16 left-4 w-1/3 h-[80vh] bg-white p-4 overflow-y-auto shadow-lg z-10 rounded-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Chat History</h2>
             <Button variant="ghost" onClick={() => setShowHistory(false)} size="sm">✕</Button>
@@ -170,10 +200,10 @@ export default function Home() {
           ) : (
             <div className="space-y-4">
               {chatHistory.map((chat, index) => (
-                <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow">
-                  <p className="font-medium text-sm text-gray-700 dark:text-gray-300">{new Date(chat.timestamp).toLocaleString()}</p>
+                <div key={index} className="mb-4 p-3 bg-gray-50 rounded-lg shadow">
+                  <p className="font-medium text-sm text-gray-700">{new Date(chat.timestamp).toLocaleString()}</p>
                   <p className="font-semibold mt-1 mb-1">Q: {chat.prompt}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{chat.response.slice(0, 100)}...</p>
+                  <p className="text-sm text-gray-600">{chat.response.slice(0, 100)}...</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -235,7 +265,7 @@ export default function Home() {
       </div>
 
       <div className="flex gap-3 items-center w-full max-w-[700px]">
-        <Card className={cn("p-5 whitespace-normal w-full min-h-[150px] max-h-[400px] overflow-y-scroll bg-white dark:bg-gray-800")}>
+        <Card className={cn("p-5 whitespace-normal w-full min-h-[150px] max-h-[400px] overflow-y-auto bg-white")}>
           <div className={`${styles.textwrapper}`}>
             <Markdown className={cn("w-full h-full")}>{output}</Markdown>
           </div>
