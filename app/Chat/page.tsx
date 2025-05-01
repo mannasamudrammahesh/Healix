@@ -23,7 +23,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const { setTheme } = useTheme();
   const isMounted = useRef(false);
-
+  
   // Set light theme as default on initial render
   useEffect(() => {
     setTheme("light");
@@ -45,7 +45,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/chat", { method: "GET" });
       if (!res.ok) throw new Error("Failed to fetch history");
-
+      
       const data = await res.json();
       if (data && data.history) {
         setChatHistory(data.history);
@@ -127,27 +127,27 @@ export default function Home() {
       const fullResponse = data.text;
       setResponse(fullResponse);
       setPrompt("");
-
+      
       // Update chat history state and fetch fresh history
-      const newHistoryItem = {
-        prompt: trimmedPrompt,
-        response: fullResponse,
-        timestamp: new Date().toISOString()
+      const newHistoryItem = { 
+        prompt: trimmedPrompt, 
+        response: fullResponse, 
+        timestamp: new Date().toISOString() 
       };
-
+      
       setChatHistory(prev => [...prev, newHistoryItem]);
-
+      
       // Reset file input
       setFile(null);
       if (document.getElementById("file-upload") as HTMLInputElement) {
         (document.getElementById("file-upload") as HTMLInputElement).value = '';
       }
-
+      
       // Fetch updated history after a short delay to ensure server has saved it
       setTimeout(() => {
         fetchChatHistory();
       }, 500);
-
+      
     } catch (error: any) {
       toast.error(`Failed to get response: ${error.message || "Unknown error"}`);
     } finally {
@@ -174,15 +174,15 @@ export default function Home() {
   }, [response]);
 
   return (
-    <main className="flex flex-col items-center min-h-screen gap-4 mt-10 relative bg-[#A4C8E1]">
+    <main className="px-10 flex justify-around items-center bg-[#A4C8E1]">
       <Toaster position="top-center" />
       <div className="absolute top-4 left-4">
-        <Button
-          variant="outline"
+        <Button 
+          variant="outline" 
           onClick={() => {
             setShowHistory(!showHistory);
             if (!showHistory) fetchChatHistory();
-          }}
+          }} 
           aria-label="Toggle chat history"
         >
           <History size={24} />
