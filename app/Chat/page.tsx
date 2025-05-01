@@ -24,11 +24,21 @@ export default function Home() {
 
   // Fetch chat history on mount
   useEffect(() => {
-    fetch("/api/chat", { method: "GET" })
-      .then((res) => res.json())
-      .then((data) => setChatHistory(data.history || []))
-      .catch((err) => console.error("Failed to fetch chat history:", err));
+    fetchChatHistory();
   }, []);
+
+  // Function to fetch chat history
+  const fetchChatHistory = async () => {
+    try {
+      const res = await fetch("/api/chat", { method: "GET" });
+      if (!res.ok) throw new Error(`Failed to fetch history: ${res.status}`);
+      const data = await res.json();
+      setChatHistory(data.history || []);
+    } catch (err) {
+      console.error("Failed to fetch chat history:", err);
+      toast.error("Could not load chat history");
+    }
+  };
 
   const onKeyDown = (e: any) => {
     if (e.key === "Enter") {
@@ -102,11 +112,20 @@ export default function Home() {
       const fullResponse = data.text;
       setResponse(fullResponse);
       setPrompt("");
-      setChatHistory(prev => [
-        ...prev,
-        { prompt: trimmedPrompt, response: fullResponse, timestamp: new Date().toISOString() }
-      ]);
+      
+      // Update local state with new chat entry
+      const newChatEntry = { 
+        prompt: trimmedPrompt, 
+        response: fullResponse, 
+        timestamp: new Date().toISOString() 
+      };
+      
+      setChatHistory(prev => [newChatEntry, ...prev]);
       setFile(null);
+      
+      // Refetch history to ensure it's synchronized with the server
+      setTimeout(fetchChatHistory, 1000);
+      
     } catch (error) {
       toast.error(`Failed to get response: ${error instanceof Error ? error.message : "Unknown error"}`);
       setLoading(false);
@@ -141,7 +160,7 @@ export default function Home() {
       </div>
 
       {showHistory && (
-        <div className="absolute top-16 left-4 w-1/3 h-[80vh] bg-gray-100 p-4 overflow-y-auto shadow-lg z-10 rounded-lg">
+        <div className="absolute top-16 left-4 w-1/3 h-[80vh] bg-white dark:bg-gray-800 p-4 overflow-y-auto shadow-lg z-10 rounded-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Chat History</h2>
             <Button variant="ghost" onClick={() => setShowHistory(false)} size="sm">✕</Button>
@@ -151,10 +170,10 @@ export default function Home() {
           ) : (
             <div className="space-y-4">
               {chatHistory.map((chat, index) => (
-                <div key={index} className="mb-4 p-3 bg-white rounded-lg shadow">
-                  <p className="font-medium text-sm text-gray-700">{new Date(chat.timestamp).toLocaleString()}</p>
+                <div key={index} className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow">
+                  <p className="font-medium text-sm text-gray-700 dark:text-gray-300">{new Date(chat.timestamp).toLocaleString()}</p>
                   <p className="font-semibold mt-1 mb-1">Q: {chat.prompt}</p>
-                  <p className="text-sm text-gray-600">{chat.response.slice(0, 100)}...</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{chat.response.slice(0, 100)}...</p>
                   <Button
                     variant="outline"
                     size="sm"
@@ -216,7 +235,7 @@ export default function Home() {
       </div>
 
       <div className="flex gap-3 items-center w-full max-w-[700px]">
-        <Card className={cn("p-5 whitespace-normal w-full min-h-[150px] max-h-[400px] overflow-y-scroll")}>
+        <Card className={cn("p-5 whitespace-normal w-full min-h-[150px] max-h-[400px] overflow-y-scroll bg-white dark:bg-gray-800")}>
           <div className={`${styles.textwrapper}`}>
             <Markdown className={cn("w-full h-full")}>{output}</Markdown>
           </div>
