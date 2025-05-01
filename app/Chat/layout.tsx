@@ -4,14 +4,13 @@ import { UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { ThemeProvider, useTheme } from "next-themes";
+import { ThemeProvider } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
 import ModeToggle from "@/components/color-toggle";
 import styles from "@/styles/Root.module.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [showMenu, setShowMenu] = useState(false);
-  const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   // Ensure component mounts before rendering theme-dependent content
@@ -58,8 +57,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <main>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-        <div className={`${showMenu ? "overflow-hidden h-screen" : "relative min-h-screen bg-gray-100 dark:bg-gray-900"}`}>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+        <div className={`${showMenu ? "overflow-hidden h-screen" : "relative min-h-screen bg-white dark:bg-gray-900"}`}>
           {/* Navbar */}
           <nav className="relative z-20">
             <div className="flex p-10 items-center justify-between font-bold">
