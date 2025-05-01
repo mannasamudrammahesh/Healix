@@ -174,7 +174,7 @@ export default function Home() {
   }, [response]);
 
   return (
-    <main className="px-10 flex justify-around items-center bg-[#A4C8E1]">
+    <main className="flex flex-col items-center min-h-screen gap-4 mt-10 relative bg-[#A4C8E1]">
       <Toaster position="top-center" />
       <div className="absolute top-4 left-4">
         <Button 
