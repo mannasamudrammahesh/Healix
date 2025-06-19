@@ -42,6 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ul className="flex gap-5">
                   <li><Link href="/Home" className={styles.a}>Home</Link></li>
                   <li><Link href="/Chat" className={styles.a}>Council</Link></li>
+                  <li><Link href="/insights" className={styles.a}>Insights</Link></li>
+                  <li><Link href="/Therapy" className={styles.a}>Therapist</Link></li>
+                  <li><Link href="/skin-analysis" className={styles.a}>Skin Analysis</Link></li>
                 </ul>
                 <UserButton />
                 <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
@@ -83,6 +86,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ul className="flex gap-5">
                   <li><Link href="/Home" className={styles.a}>Home</Link></li>
                   <li><Link href="/Chat" className={styles.a}>Council</Link></li>
+                  <li><Link href="/insights" className={styles.a}>Insights</Link></li>
+                  <li><Link href="/Therapy" className={styles.a}>Therapist</Link></li>
+                  <li><Link href="/skin-analysis" className={styles.a}>Skin Analysis</Link></li>
                 </ul>
                 <UserButton />
                 <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">

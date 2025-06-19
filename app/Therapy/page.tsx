@@ -7,6 +7,7 @@ import Link from "next/link"
 import Markdown from "react-markdown";
 import toast, { Toaster } from "react-hot-toast";
 import { BeatLoader } from "react-spinners"
+import { BackButton } from '@/components/ui/back-button';
 
 export default function Home() {
 
@@ -112,41 +113,46 @@ export default function Home() {
   }, [])
 
   return (
-    <main className={styles.container}>
-      <Toaster />
-      <Link href="/">
-        <div className="flex gap-2 items-center font-bold">
-          <Image src="/consultation.png" alt="logo" width={30} height={30} />
-          <h1 className="text-2xl">Healix</h1>
-        </div>
-      </Link>
-      <div className={`flex flex-col mt-2 ${styles.chatHistory}`} ref={chatContainerRef}>
-        {chatHistory.length > 0 && chatHistory.map((chat) => (
-          <div key={chat.id} className="mb-5 relative">
-            <div className={`p-5 rounded-md ${chat.sender == "user" ? styles.user : styles.model}`}>
-              <div className={styles.icons}>
-                <Image src={chat.sender == "user" ? "/patient.png" : "/doctor.png"} alt="logo" width={30} height={30} />
-              </div>
-              <Markdown className="mt-2">
-                {chat.message}
-              </Markdown>
-            </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <BackButton />
+      </div>
+      <main className={styles.container}>
+        <Toaster />
+        <Link href="/">
+          <div className="flex gap-2 items-center font-bold">
+            <Image src="/consultation.png" alt="logo" width={30} height={30} />
+            <h1 className="text-2xl">Healix</h1>
           </div>
-        ))}
-      </div>
-      <div className={`flex justify-center items-center gap-5 ${styles.inputContainer}`}>
-        <div className="relative">
-          <input type="text" placeholder="Enter the prompt" value={prompt} className={`${styles.input}`} onChange={onPromptChange} onKeyDown={handleSubmit}/>
-          <Image src="/clean.png" alt="logo" width={20} height={20} className="absolute top-3 right-3 cursor-pointer hover:scale-105 transition-all duration-300 ease-in-out" onClick={deleteChatHistory}/>
+        </Link>
+        <div className={`flex flex-col mt-2 ${styles.chatHistory}`} ref={chatContainerRef}>
+          {chatHistory.length > 0 && chatHistory.map((chat) => (
+            <div key={chat.id} className="mb-5 relative">
+              <div className={`p-5 rounded-md ${chat.sender == "user" ? styles.user : styles.model}`}>
+                <div className={styles.icons}>
+                  <Image src={chat.sender == "user" ? "/patient.png" : "/doctor.png"} alt="logo" width={30} height={30} />
+                </div>
+                <Markdown className="mt-2">
+                  {chat.message}
+                </Markdown>
+              </div>
+            </div>
+          ))}
         </div>
-        {loading ? (
-          <button className={styles.button} disabled>
-            <BeatLoader color="#fff" size={10} />
-          </button>
-        ) : (
-          <button className={styles.button} onClick={onHandleClick}>send</button>
-        )}
-      </div>
-    </main>
+        <div className={`flex justify-center items-center gap-5 ${styles.inputContainer}`}>
+          <div className="relative">
+            <input type="text" placeholder="Enter the prompt" value={prompt} className={`${styles.input}`} onChange={onPromptChange} onKeyDown={handleSubmit}/>
+            <Image src="/clean.png" alt="logo" width={20} height={20} className="absolute top-3 right-3 cursor-pointer hover:scale-105 transition-all duration-300 ease-in-out" onClick={deleteChatHistory}/>
+          </div>
+          {loading ? (
+            <button className={styles.button} disabled>
+              <BeatLoader color="#fff" size={10} />
+            </button>
+          ) : (
+            <button className={styles.button} onClick={onHandleClick}>send</button>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }
