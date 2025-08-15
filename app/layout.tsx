@@ -22,7 +22,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <head>
-          <meta name="google-site-verification" content="ZuJTAJvh7XaciFro6UMkmUpHDYjb5uvPh-B9JH0DSF8" />
+        <meta name="google-site-verification" content="ZuJTAJvh7XaciFro6UMkmUpHDYjb5uvPh-B9JH0DSF8" />
         </head>
         <body style={{ fontFamily: fallbackFonts }} className="backg">
           {children}
